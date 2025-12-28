@@ -27,3 +27,21 @@ data class RoutePlan(
     val center: CityLocation,
     val stops: List<Poi>
 )
+
+
+@kotlinx.serialization.Serializable
+data class OverpassResponse(
+    val elements: List<OverpassElement>
+)
+
+@kotlinx.serialization.Serializable
+data class OverpassElement(
+    val id: Long,
+    val lat: Double? = null,
+    val lon: Double? = null,
+    val center: Center? = null,
+    val tags: Map<String, String>? = null
+)
+
+@kotlinx.serialization.Serializable
+data class Center(val lat: Double, val lon: Double)
