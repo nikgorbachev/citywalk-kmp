@@ -14,11 +14,13 @@ import ovh.plrapps.mapcompose.api.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.Icons
+import kotlinx.coroutines.Job
 
 import org.nikgor.project.map.*
 
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.animation.core.SnapSpec
 
 
 @Composable
@@ -37,6 +39,8 @@ fun HomeScreen() {
 
     val mapViewModel = remember { MapViewModel() }
     val scope = rememberCoroutineScope()
+
+    var zoomJob by remember { mutableStateOf<Job?>(null) }
 
     Column(
         modifier = Modifier
@@ -95,9 +99,29 @@ fun HomeScreen() {
                             val event = awaitPointerEvent()
                             if (event.type == PointerEventType.Scroll) {
                                 val delta = event.changes.first().scrollDelta.y
-                                val factor = if (delta > 0) 0.9f else 1.1f
 
-                                mapViewModel.mapState.scale *= factor
+
+                                // 0.95/1.05 is much less "jumpy" for trackpads than 0.90/1.10
+                                val zoomFactor = if (delta > 0) 0.95f else 1.05f
+
+                                val currentScale = mapViewModel.mapState.scale
+                                val newScale = (currentScale * zoomFactor).coerceIn(0.005, 2.0)
+
+                                val cx = mapViewModel.mapState.centroidX
+                                val cy = mapViewModel.mapState.centroidY
+
+                                // 2. THE FIX: Cancel the previous job before starting a new one
+                                // This stops the "glitch" where old scrolls overwrite new ones
+                                zoomJob?.cancel()
+
+                                zoomJob = scope.launch {
+                                    mapViewModel.mapState.scrollTo(
+                                        x = cx,
+                                        y = cy,
+                                        destScale = newScale,
+                                        animationSpec = SnapSpec()
+                                    )
+                                }
                             }
                         }
                     }
