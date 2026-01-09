@@ -13,6 +13,7 @@ plugins {
 
 kotlin {
     androidTarget {
+        @OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
         compilerOptions {
             jvmTarget.set(JvmTarget.JVM_11)
         }
@@ -42,9 +43,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-
             implementation(compose.materialIconsExtended)
-            // Compose
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
@@ -52,21 +51,18 @@ kotlin {
             implementation(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
 
-            // Lifecycle
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
 
-            // Ktor (common)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.json)
             implementation(libs.kotlinx.serialization.json)
             implementation("io.ktor:ktor-client-core")
-            implementation("io.ktor:ktor-client-logging:3.3.3") // or "io.ktor:ktor-client-logging:VERSION"
+            implementation("io.ktor:ktor-client-logging:3.3.3")
             implementation("ovh.plrapps:mapcompose-mp:0.11.0")
             implementation("com.squareup.okio:okio:3.7.0")
             implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.6.0")
-
         }
 
         androidMain.dependencies {
@@ -86,10 +82,10 @@ kotlin {
             implementation(libs.ktor.client.darwin)
         }
 
-//        wasmJsMain.dependencies {
-//            implementation(libs.ktor.client.core)
-//            implementation(libs.ktor.client.js)
-//        }
+        wasmJsMain.dependencies {
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.js)
+        }
 
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -99,14 +95,17 @@ kotlin {
 
 android {
     namespace = "org.nikgor.project"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
+
+    // REQUIRED: Libraries demand SDK 36
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "org.nikgor.project"
         minSdk = libs.versions.android.minSdk.get().toInt()
-        targetSdk = libs.versions.android.targetSdk.get().toInt()
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+        multiDexEnabled = true
     }
 
     packaging {

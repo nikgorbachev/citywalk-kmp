@@ -49,7 +49,6 @@ fun HomeScreen() {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
 
-        // ---------- FORM ----------
         Text("MarcheRoute", style = MaterialTheme.typography.headlineMedium)
 
         TextField(
@@ -71,16 +70,19 @@ fun HomeScreen() {
             onClick = {
                 scope.launch {
                     loading = true
-
-                    val route = RoutePlanner().planRoute(
-                        city = city,
-                        hours = hours.toDoubleOrNull() ?: 3.0
-                    )
-
-                    plan = route
-                    pendingCenter = route.center.lat to route.center.lon
-
-                    loading = false
+                    try {
+                        val route = RoutePlanner().planRoute(
+                            city = city,
+                            hours = hours.toDoubleOrNull() ?: 3.0
+                        )
+                        plan = route
+                        pendingCenter = route.center.lat to route.center.lon
+                    } catch (e: Exception) {
+                        println("Error generating route: ${e.message}")
+                        e.printStackTrace()
+                    } finally {
+                        loading = false
+                    }
                 }
             }
         ) {
