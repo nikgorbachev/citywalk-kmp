@@ -10,17 +10,15 @@ import org.nikgor.project.data.*
 import org.nikgor.project.routing.RoutePlanner
 import ovh.plrapps.mapcompose.ui.MapUI
 import ovh.plrapps.mapcompose.api.*
-
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.Icons
 import kotlinx.coroutines.Job
-
 import org.nikgor.project.map.*
-
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.animation.core.SnapSpec
+import androidx.compose.ui.Alignment
 
 
 @Composable
@@ -29,17 +27,18 @@ fun HomeScreen() {
     // ---------- UI STATE ----------
     var city by remember { mutableStateOf("") }
     var hours by remember { mutableStateOf("3") }
-    var loading by remember { mutableStateOf(false) }
 
-    // ---------- DATA ----------
+    var startFromStation by remember { mutableStateOf(false) }
+    var needFood by remember { mutableStateOf(true) }
+
+    var loading by remember { mutableStateOf(false) }
     var plan by remember { mutableStateOf<RoutePlan?>(null) }
 
-    // Used ONLY to trigger centering after layout
-    var pendingCenter by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+
+//    var pendingCenter by remember { mutableStateOf<Pair<Double, Double>?>(null) }
 
     val mapViewModel = remember { MapViewModel() }
     val scope = rememberCoroutineScope()
-
     var zoomJob by remember { mutableStateOf<Job?>(null) }
 
     Column(
@@ -51,19 +50,30 @@ fun HomeScreen() {
 
         Text("MarcheRoute", style = MaterialTheme.typography.headlineMedium)
 
-        TextField(
-            value = city,
-            onValueChange = { city = it },
-            label = { Text("City") },
-            singleLine = true
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextField(
+                value = city,
+                onValueChange = { city = it },
+                label = { Text("City") },
+                singleLine = true,
+                modifier = Modifier.weight(1f)
+            )
+            TextField(
+                value = hours,
+                onValueChange = { hours = it },
+                label = { Text("Hours") },
+                singleLine = true,
+                modifier = Modifier.width(100.dp)
+            )
+        }
 
-        TextField(
-            value = hours,
-            onValueChange = { hours = it },
-            label = { Text("Hours available") },
-            singleLine = true
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = startFromStation, onCheckedChange = { startFromStation = it })
+            Text("Start from Station")
+            Spacer(Modifier.width(16.dp))
+            Checkbox(checked = needFood, onCheckedChange = { needFood = it })
+            Text("Include Food")
+        }
 
         Button(
             enabled = !loading && city.isNotBlank(),
@@ -73,10 +83,12 @@ fun HomeScreen() {
                     try {
                         val route = RoutePlanner().planRoute(
                             city = city,
-                            hours = hours.toDoubleOrNull() ?: 3.0
+                            hours = hours.toDoubleOrNull() ?: 3.0,
+                            startFromStation = startFromStation,
+                            includeFood = needFood
                         )
                         plan = route
-                        pendingCenter = route.center.lat to route.center.lon
+//                        pendingCenter = route.center.lat to route.center.lon
                     } catch (e: Exception) {
                         println("Error generating route: ${e.message}")
                         e.printStackTrace()
@@ -86,7 +98,7 @@ fun HomeScreen() {
                 }
             }
         ) {
-            Text("Generate route")
+            Text(if (loading) "Generating..." else "Generate Route")
         }
 
         if (loading) CircularProgressIndicator()
@@ -112,7 +124,7 @@ fun HomeScreen() {
                                 val cx = mapViewModel.mapState.centroidX
                                 val cy = mapViewModel.mapState.centroidY
 
-                                // 2. THE FIX: Cancel the previous job before starting a new one
+                                // Cancel the previous job before starting a new one
                                 // This stops the "glitch" where old scrolls overwrite new ones
                                 zoomJob?.cancel()
 
@@ -135,26 +147,26 @@ fun HomeScreen() {
             )
         }
 
-        // ---------- APPLY ROUTE ----------
-        // ... inside HomeScreen Composable ...
+
         LaunchedEffect(plan) {
             val currentPlan = plan ?: return@LaunchedEffect
 
-            // 1. Clear previous markers/paths if necessary
+            // 1. CLEAR OLD MARKERS (Fixes duplicate marker bug)
+            mapViewModel.clearMarkers()
             mapViewModel.mapState.removePath("route")
 
-            // 2. Add POI markers
-            currentPlan.stops.forEach { poi ->
-                mapViewModel.mapState.addMarker(
+            // 2. Add New POI markers
+            currentPlan.stops.forEachIndexed { index, poi ->
+                mapViewModel.addClusterMarker(
                     id = "poi-${poi.id}",
-                    x = lonToX(poi.lon),
-                    y = latToY(poi.lat)
+                    lat = poi.lat,
+                    lon = poi.lon
                 ) {
                     Icon(
                         imageVector = Icons.Default.Place,
                         contentDescription = poi.name,
                         modifier = Modifier.size(32.dp),
-                        tint = Color.Red
+                        tint = if (index == 0) Color.Green else Color.Red
                     )
                 }
             }
@@ -170,18 +182,21 @@ fun HomeScreen() {
                 })
             }
 
-            // 4. Center the map
             mapViewModel.centerOn(currentPlan.center.lat, currentPlan.center.lon)
         }
 
 
-        // ---------- TEXT LIST ----------
+
         plan?.let {
-            Spacer(Modifier.height(8.dp))
-            Text("Stops:", style = MaterialTheme.typography.titleMedium)
-            it.stops.forEachIndexed { i, poi ->
-                Text("${i + 1}. ${poi.name}")
-            }
+            Text(
+                "Route: ${it.totalDistKm.toInt()}km • ~${it.estimatedTimeHours.toString().take(3)}h",
+                style = MaterialTheme.typography.labelLarge
+            )
+            Text(
+                it.stops.joinToString(" → ") { p -> p.name },
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 2
+            )
         }
     }
 }

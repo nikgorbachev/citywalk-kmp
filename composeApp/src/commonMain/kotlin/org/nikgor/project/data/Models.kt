@@ -2,6 +2,18 @@ package org.nikgor.project.data
 
 import kotlinx.serialization.Serializable
 
+
+enum class PoiCategory(val weight: Int, val dwellTimeMin: Int) {
+    LANDMARK(10, 15),
+    HISTORIC_SITE(weight = 7, dwellTimeMin = 5),
+    MUSEUM(5, 60),
+    PARK(3, 30),
+    RESTAURANT(weight = 8, dwellTimeMin = 45),
+    CAFE(weight = 7, dwellTimeMin = 20),
+    OTHER(1, 10)
+}
+
+
 @Serializable
 data class CityLocation(val lat: Double, val lon: Double)
 
@@ -18,14 +30,17 @@ data class Poi(
     val id: Long,
     val lat: Double,
     val lon: Double,
-    val name: String
+    val name: String,
+    val category: PoiCategory = PoiCategory.OTHER
 )
 
 @Serializable
 data class RoutePlan(
     val city: String,
     val center: CityLocation,
-    val stops: List<Poi>
+    val stops: List<Poi>,
+    val totalDistKm: Double,
+    val estimatedTimeHours: Double
 )
 
 
