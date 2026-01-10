@@ -18,6 +18,7 @@ import org.nikgor.project.map.*
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.animation.core.SnapSpec
+import androidx.compose.foundation.background
 import androidx.compose.ui.Alignment
 
 
@@ -187,16 +188,67 @@ fun HomeScreen() {
 
 
 
-        plan?.let {
-            Text(
-                "Route: ${it.totalDistKm.toInt()}km • ~${it.estimatedTimeHours.toString().take(3)}h",
-                style = MaterialTheme.typography.labelLarge
-            )
-            Text(
-                it.stops.joinToString(" → ") { p -> p.name },
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 2
-            )
+        // ... inside HomeScreen ...
+
+        // ---------- SCROLLABLE LIST ----------
+        // Use a LazyColumn for better performance with lists
+        plan?.let { currentPlan ->
+            Spacer(Modifier.height(8.dp))
+            Text("Itinerary:", style = MaterialTheme.typography.titleMedium)
+
+            androidx.compose.foundation.lazy.LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f), // Take remaining space
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(currentPlan.stops.size) { i ->
+                    val poi = currentPlan.stops[i]
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Index Bubble
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .background(MaterialTheme.colorScheme.primary, shape = androidx.compose.foundation.shape.CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "${i + 1}",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+
+                            Spacer(Modifier.width(12.dp))
+
+                            Column {
+                                Text(
+                                    text = poi.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                )
+                                Text(
+                                    text = "${poi.category.name.replace("_", " ")} • ${poi.category.dwellTimeMin} min",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (poi.link != null) {
+                                    Text(
+                                        text = "Has Website/Wiki",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.Blue
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

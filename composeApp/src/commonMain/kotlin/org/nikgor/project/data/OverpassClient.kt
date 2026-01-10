@@ -79,7 +79,8 @@ class OverpassClient {
                             lat = lat,
                             lon = lon,
                             name = name,
-                            category = determineCategory(el.tags)
+                            category = determineCategory(el.tags),
+                            link = el.tags["website"] ?: el.tags["wikipedia"]?.let { "https://en.wikipedia.org/wiki/$it" }
                         )
                     } else null
                 }

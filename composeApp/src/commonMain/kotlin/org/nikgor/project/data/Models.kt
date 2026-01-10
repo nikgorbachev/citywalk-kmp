@@ -31,7 +31,8 @@ data class Poi(
     val lat: Double,
     val lon: Double,
     val name: String,
-    val category: PoiCategory = PoiCategory.OTHER
+    val category: PoiCategory = PoiCategory.OTHER,
+    val link: String? = null
 )
 
 @Serializable
