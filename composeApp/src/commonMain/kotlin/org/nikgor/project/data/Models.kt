@@ -8,8 +8,8 @@ enum class PoiCategory(val weight: Int, val dwellTimeMin: Int) {
     HISTORIC_SITE(weight = 7, dwellTimeMin = 5),
     MUSEUM(5, 60),
     PARK(3, 30),
-    RESTAURANT(weight = 8, dwellTimeMin = 45),
-    CAFE(weight = 7, dwellTimeMin = 20),
+    RESTAURANT(weight = 40, dwellTimeMin = 45), // such a high score , cause only used once in practice
+    CAFE(weight = 8, dwellTimeMin = 20),
     OTHER(1, 10)
 }
 

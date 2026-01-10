@@ -6,8 +6,8 @@ import io.ktor.http.*
 import kotlinx.coroutines.delay
 
 class OverpassClient {
-    private val maxRetries = 3
-    private val baseDelayMs = 1_000L
+    private val maxRetries = 2
+    private val baseDelayMs = 1_200L
 
     // Main train station inside the city bbox
     suspend fun queryMainStation(bbox: BoundingBox, cityCenter: CityLocation): Poi? {

@@ -2,6 +2,7 @@ package org.nikgor.project.routing
 
 import org.nikgor.project.data.*
 import org.nikgor.project.map.distanceKm
+import kotlin.math.pow
 
 class RoutePlanner {
 
@@ -18,7 +19,7 @@ class RoutePlanner {
         // 1. Geocode
         val (cityCenter, bbox) = geocoder.geocode(city)
 
-        // 2. Start Point
+        // 2. Determine Start Point
         var startPoi: Poi? = null
         if (startFromStation) {
             val station = overpass.queryMainStation(bbox, cityCenter)
@@ -29,13 +30,13 @@ class RoutePlanner {
         }
 
         // 3. Fetch
-        val allPois = overpass.queryPois(bbox) // Don't shuffle yet
+        val allPois = overpass.queryPois(bbox).shuffled()
 
         // 4. Selection Buckets
         val restaurants = allPois.filter { it.category == PoiCategory.RESTAURANT }
         val cafes = allPois.filter { it.category == PoiCategory.CAFE }
 
-        // Group everything else for the "Sightseeing" part
+        // Group sightseeing candidates
         val sights = allPois.filter {
             it.category != PoiCategory.RESTAURANT && it.category != PoiCategory.CAFE
         }
@@ -45,46 +46,48 @@ class RoutePlanner {
         // 4a. Must Haves (Randomize specific high-value targets)
         val landmarks = sights.filter { it.category == PoiCategory.LANDMARK }.shuffled()
         val historic = sights.filter { it.category == PoiCategory.HISTORIC_SITE }.shuffled()
+        val museums = sights.filter { it.category == PoiCategory.MUSEUM }.shuffled()
+        val parks = sights.filter { it.category == PoiCategory.PARK }.shuffled()
 
         landmarks.firstOrNull()?.let { selectedSet.add(it) }
         historic.firstOrNull()?.let { selectedSet.add(it) }
+        museums.firstOrNull()?.let { selectedSet.add(it) }
+        parks.firstOrNull()?.let { selectedSet.add(it) }
 
-        // 4b. Fill Budget with WEIGHTED Randomness
-        // Shuffle first to get variety, THEN sort by weight to prioritize quality
+        // 4b. Fill Budget (Just shuffle, let the router sort by weight/dist later)
+        // We pick more candidates than we can likely visit to give the optimizer choices
         val fillerPool = sights
             .filter { !selectedSet.contains(it) }
             .shuffled()
-            .sortedByDescending { it.category.weight }
 
-        val estimatedStops = (hours / 0.75).toInt().coerceAtLeast(selectedSet.size + 2)
+        // Heuristic: Select roughly 1.5x what we think we can fit, so we have options
+        val estimatedCapacity = (hours / 0.5).toInt().coerceAtLeast(selectedSet.size + 5)
 
         for (poi in fillerPool) {
-            if (selectedSet.size >= estimatedStops) break
+            if (selectedSet.size >= estimatedCapacity) break
             selectedSet.add(poi)
         }
 
-        // 4c. SMART FOOD SELECTION [Fix for Missing Food]
-        // Instead of random food, pick food closest to the "Center of Mass" of our selected sights
+        // 4c. SMART FOOD SELECTION
+        // Find food close to the "Center of Mass" of the selected sights
         if (includeFood && selectedSet.isNotEmpty()) {
-            // Calculate average Lat/Lon of selected sights
             val avgLat = selectedSet.map { it.lat }.average()
             val avgLon = selectedSet.map { it.lon }.average()
             val routeCenter = CityLocation(avgLat, avgLon)
 
-            // Find closest restaurant to the sights
             val bestRestaurant = restaurants.minByOrNull {
                 distanceKm(routeCenter, CityLocation(it.lat, it.lon))
             }
             bestRestaurant?.let { selectedSet.add(it) }
 
-            // Find closest cafe
+            // Maybe a cafe too?
             val bestCafe = cafes.minByOrNull {
                 distanceKm(routeCenter, CityLocation(it.lat, it.lon))
             }
             bestCafe?.let { selectedSet.add(it) }
         }
 
-        // 5. Optimization (TSP / Nearest Neighbor)
+        // 5. WEIGHTED GREEDY ROUTING
         val optimizedRoute = mutableListOf<Poi>()
         optimizedRoute.add(startPoi)
 
@@ -97,26 +100,41 @@ class RoutePlanner {
         candidates.removeAll { it.id == startPoi.id }
 
         while (candidates.isNotEmpty()) {
-            // MAGNET HEURISTIC
-            val target = if (optimizedRoute.size == 1 && startFromStation) cityCenter else currentLocation
+            val nextPoi = if (optimizedRoute.size == 1 && startFromStation) {
+                // MAGNET HEURISTIC: First step from station -> Go towards City Center
+                candidates.minByOrNull { poi ->
+                    distanceKm(cityCenter, CityLocation(poi.lat, poi.lon))
+                }
+            } else {
+                // WEIGHTED GREEDY HEURISTIC: Score = Weight / (Distance + Bias)
+                // Bias (0.5km) prevents jumping to a boring statue 10m away instead of a Cathedral 500m away.
+                candidates.maxByOrNull { poi ->
+                    val dist = distanceKm(currentLocation, CityLocation(poi.lat, poi.lon))
+                    // Use pow(1.5) to penalize long distances slightly more than linear
+                    val score = poi.category.weight / (dist + 0.5).pow(1.5)
 
-            val nearest = candidates.minByOrNull { poi ->
-                distanceKm(target, CityLocation(poi.lat, poi.lon))
+//                    if (poi.category == PoiCategory.RESTAURANT || poi.category == PoiCategory.CAFE) {
+//                        score *= 5.0
+//                    }
+
+                    score
+                }
             } ?: break
 
-            val distKm = distanceKm(currentLocation, CityLocation(nearest.lat, nearest.lon))
+            val distKm = distanceKm(currentLocation, CityLocation(nextPoi.lat, nextPoi.lon))
             val walkTimeMin = (distKm / walkingSpeedKmH) * 60
-            val dwellTime = nearest.category.dwellTimeMin.toDouble()
+            val dwellTime = nextPoi.category.dwellTimeMin.toDouble()
             val cost = walkTimeMin + dwellTime
 
             if (currentTimeMinutes + cost <= maxMinutes) {
-                optimizedRoute.add(nearest)
+                optimizedRoute.add(nextPoi)
                 currentTimeMinutes += cost
                 totalDist += distKm
-                currentLocation = CityLocation(nearest.lat, nearest.lon)
-                candidates.remove(nearest)
+                currentLocation = CityLocation(nextPoi.lat, nextPoi.lon)
+                candidates.remove(nextPoi)
             } else {
-                candidates.remove(nearest)
+                // Doesn't fit. Remove and try the next best candidate in the next iteration
+                candidates.remove(nextPoi)
             }
         }
 
