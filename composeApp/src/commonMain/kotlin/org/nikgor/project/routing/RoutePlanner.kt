@@ -16,10 +16,10 @@ class RoutePlanner {
         startFromStation: Boolean,
         includeFood: Boolean
     ): RoutePlan {
-        // 1. Geocode
+        // 1. Geocoding
         val (cityCenter, bbox) = geocoder.geocode(city)
 
-        // 2. Determine Start Point
+        // 2. Determining Start Point
         var startPoi: Poi? = null
         if (startFromStation) {
             val station = overpass.queryMainStation(bbox, cityCenter)
@@ -30,21 +30,20 @@ class RoutePlanner {
             startPoi = Poi(-1, cityCenter.lat, cityCenter.lon, label, PoiCategory.OTHER)
         }
 
-        // 3. Fetch
+        // 3. Fetching POIs
         val allPois = overpass.queryPois(bbox).shuffled()
 
-        // 4. Selection Buckets
+        // 4. Selection sorting into buckets
         val restaurants = allPois.filter { it.category == PoiCategory.RESTAURANT }
         val cafes = allPois.filter { it.category == PoiCategory.CAFE }
 
-        // Group sightseeing candidates
         val sights = allPois.filter {
             it.category != PoiCategory.RESTAURANT && it.category != PoiCategory.CAFE
         }
 
         val selectedSet = mutableListOf<Poi>()
 
-        // 4a. Must Haves (Randomize specific high-value targets)
+        // 4a. Must Haves
         val landmarks = sights.filter { it.category == PoiCategory.LANDMARK }.shuffled()
         val historic = sights.filter { it.category == PoiCategory.HISTORIC_SITE }.shuffled()
         val museums = sights.filter { it.category == PoiCategory.MUSEUM }.shuffled()
@@ -55,8 +54,7 @@ class RoutePlanner {
         museums.firstOrNull()?.let { selectedSet.add(it) }
         parks.firstOrNull()?.let { selectedSet.add(it) }
 
-        // 4b. Fill Budget (Just shuffle, let the router sort by weight/dist later)
-        // We pick more candidates than we can likely visit to give the optimizer choices
+        // 4b. Filling Time-budget (Just shuffle, the router will sort by weight/dist later)
         val fillerPool = sights
             .filter { !selectedSet.contains(it) }
             .shuffled()
@@ -69,7 +67,7 @@ class RoutePlanner {
             selectedSet.add(poi)
         }
 
-        // 4c. SMART FOOD SELECTION
+        // 4c. FOOD SELECTION
         // Find food close to the "Center of Mass" of the selected sights
         if (includeFood && selectedSet.isNotEmpty()) {
             val avgLat = selectedSet.map { it.lat }.average()
@@ -99,7 +97,7 @@ class RoutePlanner {
 
         while (candidates.isNotEmpty()) {
             val nextPoi = if (optimizedRoute.size == 1 && startFromStation) {
-                // MAGNET HEURISTIC: First step from station -> Go towards City Center
+                // HEURISTIC: First step from station -> Go towards City Center
                 candidates.minByOrNull { poi ->
                     distanceKm(cityCenter, CityLocation(poi.lat, poi.lon))
                 }

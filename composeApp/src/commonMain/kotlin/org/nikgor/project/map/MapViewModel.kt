@@ -43,11 +43,7 @@ class MapViewModel {
                 absoluteOffset = DpOffset(0.dp, (-50).dp), // Shift up to sit on top of pin
                 autoDismiss = true // Dismiss on map touch
             ) {
-                // We define the UI for this in HomeScreen via a lambda,
-                // or we can pass a Composable factory.
-                // For simplicity, let's keep the logic here generic if possible,
-                // but since we need Composable context, it's easier if we just trigger a callback.
-                // However, `addCallout` expects a composable.
+                // `addCallout` expects a composable.
             }
         }
     }
