@@ -4,7 +4,7 @@
 
 Instead of generic "top 10" lists, CityWalk generates an **optimized, time-boxed walking itinerary** tailored to your specific constraints. It prioritizes nearby historic landmarks, museums, and parks, optionally finding the best spot for lunch without taking you off-course.
 
-<video src="media/screencast.webm" width="100%" controls></video>
+<video src="https://github.com/nikgorbachev/citywalk-kmp/releases/download/v1.0.0/screencast_compressed.webm" width="100%" controls></video>
 
 ---
 
