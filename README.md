@@ -1,76 +1,104 @@
-This is a Kotlin Multiplatform project targeting Android, iOS, Web, Desktop (JVM).
+# CityWalk 🚶‍♂️🌍
 
-* [/composeApp](./composeApp/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./composeApp/src/commonMain/kotlin) is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    the [iosMain](./composeApp/src/iosMain/kotlin) folder would be the right place for such calls.
-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./composeApp/src/jvmMain/kotlin)
-    folder is the appropriate location.
+**CityWalk** is a Kotlin Multiplatform (KMP) application designed for travelers who have a few hours to spare in a new city and want to make the most of it.
 
-* [/iosApp](./iosApp/iosApp) contains iOS applications. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+Instead of generic "top 10" lists, CityWalk generates an **optimized, time-boxed walking itinerary** tailored to your specific constraints. It prioritizes nearby historic landmarks, museums, and parks, optionally finding the best spot for lunch without taking you off-course.
 
-### Build and Run Android Application
-
-To build and run the development version of the Android app, use the run configuration from the run widget
-in your IDE’s toolbar or build it directly from the terminal:
-- on macOS/Linux
-  ```shell
-  ./gradlew :composeApp:assembleDebug
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:assembleDebug
-  ```
-
-### Build and Run Desktop (JVM) Application
-
-To build and run the development version of the desktop app, use the run configuration from the run widget
-in your IDE’s toolbar or run it directly from the terminal:
-- on macOS/Linux
-  ```shell
-  ./gradlew :composeApp:run
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:run
-  ```
-
-### Build and Run Web Application
-
-To build and run the development version of the web app, use the run configuration from the run widget
-in your IDE's toolbar or run it directly from the terminal:
-- for the Wasm target (faster, modern browsers):
-  - on macOS/Linux
-    ```shell
-    ./gradlew :composeApp:wasmJsBrowserDevelopmentRun
-    ```
-  - on Windows
-    ```shell
-    .\gradlew.bat :composeApp:wasmJsBrowserDevelopmentRun
-    ```
-- for the JS target (slower, supports older browsers):
-  - on macOS/Linux
-    ```shell
-    ./gradlew :composeApp:jsBrowserDevelopmentRun
-    ```
-  - on Windows
-    ```shell
-    .\gradlew.bat :composeApp:jsBrowserDevelopmentRun
-    ```
-
-### Build and Run iOS Application
-
-To build and run the development version of the iOS app, use the run configuration from the run widget
-in your IDE’s toolbar or open the [/iosApp](./iosApp) directory in Xcode and run it from there.
+<video src="media/screencast.webm" width="100%" controls></video>
 
 ---
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html),
-[Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform/#compose-multiplatform),
-[Kotlin/Wasm](https://kotl.in/wasm/)…
+## How It Works
 
-We would appreciate your feedback on Compose/Web and Kotlin/Wasm in the public Slack channel [#compose-web](https://slack-chats.kotlinlang.org/c/compose-web).
-If you face any issues, please report them on [YouTrack](https://youtrack.jetbrains.com/newIssue?project=CMP).
+CityWalk acts as your intelligent local guide. You simply enter the **City Name** and your **Time Available** (e.g., 3 hours). The app then:
+
+1.  **Scans the City**: identifying the city's Points of Interest (POIs) using OpenStreetMap data.
+2.  **Filters & Prioritizes**: selecting key sights based on importance (landmarks, historic sites) and proximity.
+3.  **Routes Intelligently**: connecting these points into a walkable path that fits exactly within your time budget.
+4.  **Visualizes**: displaying the route on an interactive map with detailed markers.
+5.  **Shares**: allowing you to copy the full text itinerary (with Wiki links) to your clipboard.
+
+---
+
+## Features
+
+* **Smart Itinerary Generation**: Creates a unique route every time based on weighted category logic.
+* **Time-Budget Aware**: Automatically calculates walking time (at 4.5 km/h) + specific dwell times (e.g., 60m for museums, 15m for landmarks).
+* **Food Finder**: If "Include Food Stop" is checked, the algorithm identifies a highly-rated restaurant located at the geometric "center of mass" of your selected sights to minimize detours.
+* **Train Station Support**: Optional toggle to start/end the route specifically at the city's main train station—perfect for layovers.
+* **Interactive Map**: Native map rendering with smooth zooming, clustering, and custom "callout" tooltips.
+* **Cross-Platform**: Runs natively on **Desktop (JVM)** and **Android**.
+
+---
+
+## Under the Hood
+
+CityWalk leverages the full power of Kotlin Multiplatform to share 99% of its business logic and UI code.
+
+### 1. The Data Layer
+* **Geocoding**: Uses the **Nominatim API** to convert city names into geospatial bounding boxes.
+* **POI Fetching**: Queries the **Overpass API** (OpenStreetMap) to fetch nodes and ways, filtering for specific tags (e.g., `tourism=attraction`, `historic=castle`).
+
+### 2. The Algorithm: Weighted Greedy Routing
+The core of the app is a custom heuristic algorithm found in `RoutePlanner.kt`. It constructs the route step-by-step:
+
+* **Category Weights**: Different POIs are assigned weights (e.g., `LANDMARK = 10`, `PARK = 3`, `OTHER = 1`).
+* **Scoring Formula**: To decide the next stop, the algorithm calculates a score for all candidates:
+
+  $$Score = \frac{Weight}{(Distance + 0.5km)^{1.5}}$$
+
+    * *The `0.5km` bias prevents the algorithm from getting stuck in local clusters of low-value items.*
+    * *The power of `1.5` penalizes long distances, keeping the walk compact.*
+* **Time Budgeting**: As points are added, the app subtracts the walking time and the estimated "dwell time" (e.g., 60 mins for a museum) from your total budget.
+
+### 3. Tech Stack
+* **Kotlin Multiplatform**: Shared logic for Android & Desktop.
+* **Compose Multiplatform**: Shared UI code (Material 3 Design).
+* **Ktor**: Networking (HTTP client for API calls).
+* **MapCompose**: High-performance vector map rendering.
+* **Coroutines**: Asynchronous data fetching and processing.
+* **Kotlinx Serialization**: JSON parsing.
+
+---
+
+## Build & Run
+
+This project relies on Gradle. Ensure you have JDK 17+ installed.
+
+### Desktop (JVM)
+To run the desktop application on macOS, Windows, or Linux:
+
+```bash
+# macOS / Linux
+./gradlew :composeApp:run
+
+# Windows
+.\gradlew.bat :composeApp:run
+``` 
+
+### Android
+To run on an Android emulator or connected device:
+
+```bash
+# macOS / Linux
+./gradlew :composeApp:installDebug
+
+# Windows
+.\gradlew.bat :composeApp:installDebug
+``` 
+
+Alternatively, open the project in Android Studio and run the composeApp configuration.
+
+--- 
+
+## License
+
+This project is licensed under the MIT License. See the LICENSE file for details.
+
+---
+
+##  Contact
+
+Created by Nikolai Gorbachev for the Kotlin Student Coding Competition 2025.
+
+Email: nikolai.m.gorbachev@gmail.com
